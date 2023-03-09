@@ -1,0 +1,27 @@
+---
+# tasks file for rhsso-install
+- name: Create a namespace with token  
+  k8s:  
+    api_key: "{{ k8s_auth_results.k8s_auth.api_key }}"  
+    name: testnamespace  
+    kind: Namespace  
+    state: present
+
+# - name: Import SSO Images
+#   community.okd.openshift_import_image:
+#     namespace: testnamespace
+#     source: registry.redhat.io/rh-sso-7/sso74-openshift-rhel8:7.4
+#     name: rh-sso
+#TO DO: login to registry.redhat.io https://docs.ansible.com/ansible/latest/collections/community/okd/openshift_import_image_module.html
+
+- name: Deploy Postgresql
+  k8s:
+    api_key: "{{ k8s_auth_results.k8s_auth.api_key }}"  
+    state: present
+    src: ./rhsso-install/files/postgresql-dc.yaml
+
+- name: Create a Deployment by reading the definition from a local file
+  k8s:
+    api_key: "{{ k8s_auth_results.k8s_auth.api_key }}"  
+    state: present
+    src: ./rhsso-install/files/rhsso-dc.yaml

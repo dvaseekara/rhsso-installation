@@ -1,0 +1,149 @@
+kind: DeploymentConfig
+apiVersion: apps.openshift.io/v1
+metadata:
+  name: sso
+  namespace: testnamespace
+  labels:
+    application: sso
+    rhsso: 7.4.7.GA
+spec:
+  strategy:
+    type: Recreate
+    recreateParams:
+      timeoutSeconds: 600
+    resources: {}
+    activeDeadlineSeconds: 21600
+  triggers:
+    - type: ImageChange
+      imageChangeParams:
+        automatic: true
+        containerNames:
+          - sso
+        from:
+          kind: ImageStreamTag
+          namespace: openshift
+          name: 'sso74-openshift-rhel8:7.4'
+        lastTriggeredImage: >-
+          image-registry.openshift-image-registry.svc:5000/openshift/sso74-openshift-rhel8@sha256:7f4c56719e377215a4f2d2526c3974def6e9a02093fd6a8cf3473bcd500e620b
+    - type: ConfigChange
+  replicas: 1
+  revisionHistoryLimit: 10
+  test: false
+  selector:
+    deploymentConfig: sso
+  template:
+    metadata:
+      name: sso
+      creationTimestamp: null
+      labels:
+        application: sso
+        deploymentConfig: sso
+    spec:
+      volumes:
+        - name: sso-x509-https-volume
+          secret:
+            secretName: sso-x509-https-secret
+            defaultMode: 420
+        - name: sso-x509-jgroups-volume
+          secret:
+            secretName: sso-x509-jgroups-secret
+            defaultMode: 420
+        - name: service-ca
+          configMap:
+            name: sso-service-ca
+            defaultMode: 420
+      containers:
+        - resources:
+            limits:
+              memory: 1Gi
+          readinessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - '-c'
+                - /opt/eap/bin/readinessProbe.sh
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          terminationMessagePath: /dev/termination-log
+          name: sso
+          livenessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - '-c'
+                - /opt/eap/bin/livenessProbe.sh
+            initialDelaySeconds: 60
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          env:
+            - name: SSO_HOSTNAME
+            - name: DB_SERVICE_PREFIX_MAPPING
+              value: sso-postgresql=DB
+            - name: DB_JNDI
+              value: 'java:jboss/datasources/KeycloakDS'
+            - name: DB_USERNAME
+              value: userbeq
+            - name: DB_PASSWORD
+              value: 061aICPKaMIpE1H7TiaoKy56cTl54rxi
+            - name: DB_DATABASE
+              value: root
+            - name: TX_DATABASE_PREFIX_MAPPING
+              value: sso-postgresql=DB
+            - name: DB_MIN_POOL_SIZE
+            - name: DB_MAX_POOL_SIZE
+            - name: DB_TX_ISOLATION
+            - name: JGROUPS_PING_PROTOCOL
+              value: openshift.DNS_PING
+            - name: OPENSHIFT_DNS_PING_SERVICE_NAME
+              value: sso-ping
+            - name: OPENSHIFT_DNS_PING_SERVICE_PORT
+              value: '8888'
+            - name: X509_CA_BUNDLE
+              value: >-
+                /var/run/configmaps/service-ca/service-ca.crt
+                /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+            - name: JGROUPS_CLUSTER_PASSWORD
+              value: b1DVSdCb0fpFAlxSX65COpsNUr3T7I4N
+            - name: SSO_ADMIN_USERNAME
+              value: rahnjLXG
+            - name: SSO_ADMIN_PASSWORD
+              value: LSsxHCCUiGmwM6meCmKujuWaAa3FUsmD
+            - name: SSO_REALM
+            - name: SSO_SERVICE_USERNAME
+            - name: SSO_SERVICE_PASSWORD
+          ports:
+            - name: jolokia
+              containerPort: 8778
+              protocol: TCP
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: https
+              containerPort: 8443
+              protocol: TCP
+            - name: ping
+              containerPort: 8888
+              protocol: TCP
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: sso-x509-https-volume
+              readOnly: true
+              mountPath: /etc/x509/https
+            - name: sso-x509-jgroups-volume
+              readOnly: true
+              mountPath: /etc/x509/jgroups
+            - name: service-ca
+              readOnly: true
+              mountPath: /var/run/configmaps/service-ca
+          terminationMessagePolicy: File
+          image: >-
+            image-registry.openshift-image-registry.svc:5000/openshift/sso74-openshift-rhel8@sha256:7f4c56719e377215a4f2d2526c3974def6e9a02093fd6a8cf3473bcd500e620b
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 75
+      dnsPolicy: ClusterFirst
+      securityContext: {}
+      schedulerName: default-scheduler

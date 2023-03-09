@@ -1,0 +1,16 @@
+---
+- name: Play to illustrate order of execution
+  hosts: localhost
+  pre_tasks:
+    - name: Login to Cluster
+      kubernetes.core.k8s_auth:
+        host: https://api.cluster-28bxv.28bxv.sandbox3116.opentlc.com:6443
+        username: opentlc-mgr 
+        password: JYnGZMQBfMq5dAae
+        validate_certs: false
+      register: k8s_auth_results  
+      changed_when: true
+  roles:
+    - role: rhsso-install
+      api_key: "{{ k8s_auth_results.k8s_auth.api_key }}"
+
